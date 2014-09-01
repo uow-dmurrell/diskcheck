@@ -2,6 +2,12 @@
 use Data::Dumper;
 use Switch;
 
+my $me = `whoami`;
+chomp $me;
+if ($me !~ /root/){
+    die("need to execute as root user. exiting.\n");
+}
+
 #figure out which type of OS we have.
 my $os = 0;
 my $osval = `cat /etc/redhat-release|grep release`;
@@ -121,7 +127,7 @@ foreach my $d (@phys){
     $fscktime /= 60;
 
     ### Print output
-    my $msg = "$d ($dtype):\n";
+    my $msg = "$d ($dtype, ".int($disk_size)." GB):\n";
     if($check_interval_test){
         $msg .= "Failed last check: $last_check / no check interval\n";
         $check_note = 1;
@@ -133,11 +139,10 @@ foreach my $d (@phys){
         $msg .= "Failed mount count: $mount_count/$mount_max too high\n";
     }
     if($mount_countcheck || $old_check_date || $check_interval_test){
-        $msg .= "Time to fsck: ".int($fscktime)." min  (Disk = ".int($disk_size)." GB)\n";
+        $msg .= "Time to fsck: ".int($fscktime)." min\n";
         $totaltime += $fscktime;
     }
-
-    #$msg .= "$d Details: $last_check / $check_interval/$check_next, count: $mount_count/$mount_max\n";
+    else {  $msg .= "Passed. Disk $check_next > now, mount count: $mount_count/$mount_max\n"; }
 
     print $msg."\n";
     $msg = "";
@@ -148,12 +153,12 @@ foreach my $d (@phys){
 print "Total fsck time for server: ".int($totaltime)." minutes\n\n";
 
 my $hmsg = "";
-if($check_note == 1){
+if($count_note == 1){
 	$hmsg .= "Max check count isn't set. \n";
 	$hmsg .= "\text3: Set with tune2fs -c 31 /dev/disk/drive\n";
 	if($os == 5 && $ext4_seen) { $hmsg .= "\text4: Set with tune4fs -c 31 /dev/disk/drive\n"; }
 }
-if($count_note == 1){
+if($check_note == 1){
 	$hmsg .= "Max time between checks isn't set.\n";
 	$hmsg .= "\text3: Set with tune2fs -i 6m /dev/disk/drive\n";
 	if($os == 5 && $ext4_seen) { $hmsg .= "\text4: Set with tune4fs -i 6m /dev/disk/drive\n"; }
