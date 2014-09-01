@@ -27,16 +27,16 @@ my $totaltime = 0;
 
 foreach my $d (@phys){
 
-    my $dtype 				= $type[$i];
-    my $mount_count 	 	= 0;
-    my $mount_max 		 	= 0;
-    my $last_check 			= "";
-    my $check_interval	 	= 0;
-    my $check_interval_test = 0;
-    my $check_next		 	= "";
-    my $mount_countcheck	= 0;
-    my $old_check_date	 	= 0;
-    my $disk_size		 	= 0;
+	my $dtype				= $type[$i];
+	my $mount_count			= 0;
+	my $mount_max			= 0;
+	my $last_check			= "";
+	my $check_interval		= 0;
+	my $check_interval_test = 0;
+	my $check_next			= "";
+	my $mount_countcheck	= 0;
+	my $old_check_date		= 0;
+	my $disk_size			= 0;
 
     my $ext3				= 36;   #seconds per 1 gb
     my $ext4				= 6;	#seconds per 1 gb
@@ -64,7 +64,7 @@ foreach my $d (@phys){
             case /Check interval/	{$check_interval	= $v[1];}
             case /Next check after/ {$check_next		= $v[1];}
             case /Mount count/		{$mount_count		= $v[1];}
-            case /Maximum mount/	{$mount_max		= $v[1];}
+            case /Maximum mount/	{$mount_max			= $v[1];}
             else {die("encountered something else\n");}
         }
 
@@ -98,11 +98,9 @@ foreach my $d (@phys){
     }
 
     ### Get disk sizes
-
     my $size = `/bin/df -P $d|grep $d`;
     chomp $size;
     my @sp = split / +/, $size;
-    #print Dumper(\@sp);
 
     $disk_size = $sp[1];
     $disk_size /= 1024;
@@ -113,12 +111,7 @@ foreach my $d (@phys){
     elsif($dtype =~ /ext4/){$fscktime = $disk_size*$ext4;}
     elsif($dtype =~ /xfs/){$fscktime = $disk_size*$xfs;}
     else {die "enxountered unknown type: >$dtype<\n";}
-
     $fscktime /= 60;
-
-    ##print int($fscktime)." min\n";
-
-    #exit 1;
 
     ### Print output
     my $msg = "$d:\n";
@@ -136,12 +129,10 @@ foreach my $d (@phys){
 
     }
 
-    #$msg .= "$d Details: $last_check / $check_interval/$check_next, count: $mount_count/$mount_max\n";
-
     print $msg."\n";
     $msg = "";
     $i++;
-    #exit 1;
 }
 
 print "Total fsck time for server: ".int($totaltime)." minutes\n";
+
