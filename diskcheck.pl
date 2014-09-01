@@ -6,7 +6,6 @@ use Switch;
 my $os = 0;
 my $osval = `cat /etc/redhat-release|grep release`;
 chomp $osval;
-print ">$osval<\n";
 if ($osval =~ /release 5/){$os = 5;}
 elsif ($osval =~ /release 6/){$os = 6;}
 else {die "uncaught os type\n";}
@@ -24,6 +23,11 @@ foreach my $d (@disks) {
 
 my $i = 0;
 my $totaltime = 0;
+my $xfs_seen = 0;
+my $ext3_seen = 0;
+my $ext4_seen = 0;
+my $check_note = 0;
+my $count_note = 0;
 
 foreach my $d (@phys){
 
@@ -34,6 +38,7 @@ foreach my $d (@phys){
     my $check_interval	 	= 0;
     my $check_interval_test = 0;
     my $check_next		 	= "";
+
     my $mount_countcheck	= 0;
     my $old_check_date	 	= 0;
     my $disk_size		 	= 0;
@@ -46,8 +51,8 @@ foreach my $d (@phys){
 
     if ($os == 6){$tunetype = "tune2fs";}
     if ($os == 5){
-        if($dtype =~ /ext3/) {$tunetype = "tune2fs";}
-        if($dtype =~ /ext4/) {$tunetype = "tune4fs";}
+        if($dtype =~ /ext3/) {$tunetype = "/sbin/tune2fs";}
+        if($dtype =~ /ext4/) {$tunetype = "/sbin/tune4fs";}
     }
 
     my @o = `$tunetype -l $d|egrep 'Last checked|Check interval|Mount count|Maximum mount count|Next check after'`;
@@ -75,6 +80,7 @@ foreach my $d (@phys){
         #handle mount counts
         if ($mount_max == -1) {
             $mount_countcheck = 1;
+            $count_note = 1;
         }else{
             if($mount_count > $mount_max){
                 $mount_countcheck = 1;
@@ -98,42 +104,37 @@ foreach my $d (@phys){
     }
 
     ### Get disk sizes
-
     my $size = `/bin/df -P $d|grep $d`;
     chomp $size;
     my @sp = split / +/, $size;
-    #print Dumper(\@sp);
 
     $disk_size = $sp[1];
     $disk_size /= 1024;
     $disk_size /= 1024;
 
     my $fscktime = 0;
-    if   ($dtype =~ /ext3/){$fscktime = $disk_size*$ext3;}
-    elsif($dtype =~ /ext4/){$fscktime = $disk_size*$ext4;}
-    elsif($dtype =~ /xfs/){$fscktime = $disk_size*$xfs;}
-    else {die "enxountered unknown type: >$dtype<\n";}
+    if   ($dtype =~ /ext3/){$fscktime = $disk_size*$ext3; $ext3_seen = 1;}
+    elsif($dtype =~ /ext4/){$fscktime = $disk_size*$ext4; $ext4_seen = 1;}
+    elsif($dtype =~ /xfs/){$fscktime = $disk_size*$xfs; $xfs_seen = 1;}
+    else {die "enountered unknown type: >$dtype<\n";}
 
     $fscktime /= 60;
 
-    ##print int($fscktime)." min\n";
-
-    #exit 1;
-
     ### Print output
-    my $msg = "$d:\n";
+    my $msg = "$d ($dtype):\n";
     if($check_interval_test){
         $msg .= "Failed last check: $last_check / no check interval\n";
+        $check_note = 1;
     }elsif($old_check_date == 1){
         $msg .= "Failed next check: $check_next is in the past\n";
     }
+    
     if($mount_countcheck == 1){
         $msg .= "Failed mount count: $mount_count/$mount_max too high\n";
     }
     if($mount_countcheck || $old_check_date || $check_interval_test){
         $msg .= "Time to fsck: ".int($fscktime)." min  (Disk = ".int($disk_size)." GB)\n";
         $totaltime += $fscktime;
-
     }
 
     #$msg .= "$d Details: $last_check / $check_interval/$check_next, count: $mount_count/$mount_max\n";
@@ -144,4 +145,18 @@ foreach my $d (@phys){
     #exit 1;
 }
 
-print "Total fsck time for server: ".int($totaltime)." minutes\n";
+print "Total fsck time for server: ".int($totaltime)." minutes\n\n";
+
+my $hmsg = "";
+if($check_note == 1){
+	$hmsg .= "Max check count isn't set. \n";
+	$hmsg .= "\text3: Set with tune2fs -c 31 /dev/disk/drive\n";
+	if($os == 5 && $ext4_seen) { $hmsg .= "\text4: Set with tune4fs -c 31 /dev/disk/drive\n"; }
+}
+if($count_note == 1){
+	$hmsg .= "Max time between checks isn't set.\n";
+	$hmsg .= "\text3: Set with tune2fs -i 6m /dev/disk/drive\n";
+	if($os == 5 && $ext4_seen) { $hmsg .= "\text4: Set with tune4fs -i 6m /dev/disk/drive\n"; }
+}
+
+print $hmsg;
